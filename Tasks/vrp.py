@@ -7,6 +7,7 @@ The VRP is defined by the following traits:
 """
 
 import os
+import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data import Dataset
@@ -34,7 +35,7 @@ class VehicleRoutingDataset(Dataset):
         self.max_demand = max_demand
 
         # Depot location will be the first node in each
-        locations = torch.rand((num_samples, 2, input_size + 1))
+        locations = self.read_data_from_csv(num_samples, input_size)#torch.rand((num_samples, 2, input_size + 1))
         self.static = locations
 
         # All states will broadcast the drivers current load
@@ -58,6 +59,27 @@ class VehicleRoutingDataset(Dataset):
     def __getitem__(self, idx):
         # (static, dynamic, start_loc)
         return (self.static[idx], self.dynamic[idx], self.static[idx, :, 0:1])
+
+    def read_data_from_csv(self, num_samples, num_nodes):
+        df = pd.read_csv('locationsDataRMT.csv')
+        data = []
+        loc_array = df[['Latitude', 'Longitude']].values
+        terminal_lat = loc_array[0][0]
+        terminal_long = loc_array[0][1]
+        for i in range(0,num_samples):
+            lats = []
+            longs = []
+            np.random.shuffle(loc_array)
+            lats = [i[0] for i in loc_array][:num_nodes]
+            longs = [i[1] for i in loc_array][:num_nodes] 
+            lats.insert(0, terminal_lat)
+            longs.insert(0, terminal_long)
+            data.append([lats, longs])
+            if (i%1000 ==0):
+                print(f"{i} samples read")
+        print('Data read from file complete')
+        return torch.from_numpy(np.array(data)).float()
+
 
     def update_mask(self, mask, dynamic, chosen_idx=None):
         """Updates the mask used to hide non-valid states.
@@ -151,6 +173,7 @@ def reward(static, tour_indices):
     y = torch.cat((start, tour, start), dim=1)
 
     # Euclidean distance between each consecutive point
+    # TODO: GET ACtual OSRM data here instead of euclidean dist
     tour_len = torch.sqrt(torch.sum(torch.pow(y[:, :-1] - y[:, 1:], 2), dim=2))
 
     return tour_len.sum(1)

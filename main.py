@@ -183,7 +183,7 @@ def train_vrp(args):
     print('Starting VRP training')
 
     # Determines the maximum amount of load for a vehicle based on num nodes
-    LOAD_DICT = {10: 20, 20: 30, 50: 40, 100: 50}
+    LOAD_DICT = {10: 20, 20: 30, 50: 40, 100: 50, 800:30}
     MAX_DEMAND = 9
     STATIC_SIZE = 2 # (x, y)
     DYNAMIC_SIZE = 2 # (load, demand)
