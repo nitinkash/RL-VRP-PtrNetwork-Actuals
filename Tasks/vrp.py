@@ -35,7 +35,7 @@ class VehicleRoutingDataset(Dataset):
         self.max_demand = max_demand
 
         # Depot location will be the first node in each
-        locations = self.read_data_from_csv(num_samples, input_size)#torch.rand((num_samples, 2, input_size + 1))
+        locations, location_codes = self.read_data_from_csv(num_samples, input_size)#torch.rand((num_samples, 2, input_size + 1))
         self.static = locations
 
         # All states will broadcast the drivers current load
@@ -63,22 +63,27 @@ class VehicleRoutingDataset(Dataset):
     def read_data_from_csv(self, num_samples, num_nodes):
         df = pd.read_csv('locationsDataRMT.csv')
         data = []
-        loc_array = df[['Latitude', 'Longitude']].values
-        terminal_lat = loc_array[0][0]
-        terminal_long = loc_array[0][1]
+        custIdsData = []
+        loc_array = df[['CustomerID','Latitude', 'Longitude']].values
+        terminal_lat = loc_array[0][1]
+        terminal_long = loc_array[0][2]
         for i in range(0,num_samples):
             lats = []
             longs = []
-            np.random.shuffle(loc_array)
-            lats = [i[0] for i in loc_array][:num_nodes]
-            longs = [i[1] for i in loc_array][:num_nodes] 
+            custIds = []
+            np.random.shuffle(loc_array) # We are just assuming that the terminal will not get picked up here
+            custIds = [i[0] for i in loc_array][:num_nodes]
+            lats = [i[1] for i in loc_array][:num_nodes]
+            longs = [i[2] for i in loc_array][:num_nodes] 
             lats.insert(0, terminal_lat)
             longs.insert(0, terminal_long)
+            custIds.insert(0,0)
             data.append([lats, longs])
+            custIdsData.append(custIds)
             if (i%1000 ==0):
-                print(f"{i} samples read")
+                print(f"{i} instances created")
         print('Data read from file complete')
-        return torch.from_numpy(np.array(data)).float()
+        return (torch.from_numpy(np.array(data)).float(), custIds)
 
 
     def update_mask(self, mask, dynamic, chosen_idx=None):
@@ -160,6 +165,8 @@ class VehicleRoutingDataset(Dataset):
 def reward(static, tour_indices):
     """
     Euclidean distance between all cities / nodes given by tour_indices
+    
+    # TODO: GET ACtual OSRM data here instead of euclidean dist
     """
 
     # Convert the indices back into a tour
@@ -173,7 +180,6 @@ def reward(static, tour_indices):
     y = torch.cat((start, tour, start), dim=1)
 
     # Euclidean distance between each consecutive point
-    # TODO: GET ACtual OSRM data here instead of euclidean dist
     tour_len = torch.sqrt(torch.sum(torch.pow(y[:, :-1] - y[:, 1:], 2), dim=2))
 
     return tour_len.sum(1)
@@ -186,7 +192,7 @@ def render(static, tour_indices, save_path):
 
     num_plots = 3 if int(np.sqrt(len(tour_indices))) >= 3 else 1
 
-    _, axes = plt.subplots(nrows=num_plots, ncols=num_plots,
+    _, axes = plt.subplots(nrows=num_plots, figsize=(25,25), ncols=num_plots,
                            sharex='col', sharey='row')
 
     if num_plots == 1:
@@ -225,8 +231,8 @@ def render(static, tour_indices, save_path):
         ax.scatter(x, y, s=4, c='r', zorder=2)
         ax.scatter(x[0], y[0], s=20, c='k', marker='*', zorder=3)
 
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
+        ax.set_xlim(34, 38)
+        ax.set_ylim(-75, -79)
 
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=200)
