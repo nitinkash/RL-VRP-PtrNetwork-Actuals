@@ -21,7 +21,7 @@ print('Detected device {}'.format(device))
 
 
 def validate(data_loader, actor, reward_fn, render_fn=None, save_dir='.',
-             num_plot=5):
+             num_plot=5, cust_info=None):
     """Used to monitor progress on a validation set & optionally plot solution."""
 
     actor.eval()
@@ -47,7 +47,11 @@ def validate(data_loader, actor, reward_fn, render_fn=None, save_dir='.',
         if render_fn is not None and batch_idx < num_plot:
             name = 'batch%d_%2.4f.png'%(batch_idx, reward)
             path = os.path.join(save_dir, name)
-            render_fn(static, tour_indices, path)
+            if cust_info == None:
+                render_fn(static, tour_indices, path)
+            else:
+                render_fn(static, tour_indices, path, cust_info)
+
 
     actor.train()
     return np.mean(rewards)
@@ -240,7 +244,7 @@ def train_vrp(args):
 
     test_dir = 'test'
     test_loader = DataLoader(test_data, args.batch_size, False, num_workers=0)
-    out = validate(test_loader, actor, vrp.reward, vrp.render, test_dir, num_plot=5)
+    out = validate(test_loader, actor, vrp.reward, vrp.render2, test_dir, num_plot=5, cust_info=test_data.getCustomerInfo())
 
     print('Average tour length: ', out)
 

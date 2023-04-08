@@ -35,8 +35,8 @@ class VehicleRoutingDataset(Dataset):
         self.max_demand = max_demand
 
         # Depot location will be the first node in each
-        locations, location_codes = self.read_data_from_csv(num_samples, input_size)#torch.rand((num_samples, 2, input_size + 1))
-        self.static = locations
+        locations, mappingDict = self.read_data_from_csv(num_samples, input_size)#torch.rand((num_samples, 2, input_size + 1))
+        self.static = (locations, mappingDict)
 
         # All states will broadcast the drivers current load
         # Note that we only use a load between [0, 1] to prevent large
@@ -47,6 +47,8 @@ class VehicleRoutingDataset(Dataset):
         # All states will have their own intrinsic demand in [1, max_demand), 
         # then scaled by the maximum load. E.g. if load=10 and max_demand=30, 
         # demands will be scaled to the range (0, 3)
+
+        # TODO: We can get actual demand data as well and potentially add it here
         demands = torch.randint(1, max_demand + 1, dynamic_shape)
         demands = demands / float(max_load)
 
@@ -58,13 +60,16 @@ class VehicleRoutingDataset(Dataset):
 
     def __getitem__(self, idx):
         # (static, dynamic, start_loc)
-        return (self.static[idx], self.dynamic[idx], self.static[idx, :, 0:1])
+        return (self.static[0][idx], self.dynamic[idx], self.static[0][idx, :, 0:1])
 
     def read_data_from_csv(self, num_samples, num_nodes):
+        # TODO: We can rethink how we read in and handle the data of lat/longs and the customer IDs
         df = pd.read_csv('locationsDataRMT.csv')
         data = []
-        custIdsData = []
         loc_array = df[['CustomerID','Latitude', 'Longitude']].values
+        custMappingDict = {}
+        for a in loc_array:
+            custMappingDict[(a[1], a[2])] = a[0]
         terminal_lat = loc_array[0][1]
         terminal_long = loc_array[0][2]
         for i in range(0,num_samples):
@@ -79,11 +84,13 @@ class VehicleRoutingDataset(Dataset):
             longs.insert(0, terminal_long)
             custIds.insert(0,0)
             data.append([lats, longs])
-            custIdsData.append(custIds)
             if (i%1000 ==0):
                 print(f"{i} instances created")
         print('Data read from file complete')
-        return (torch.from_numpy(np.array(data)).float(), custIds)
+        return (torch.from_numpy(np.array(data)).float(), custMappingDict)
+
+    def getCustomerInfo(self):
+        return self.static[1]
 
 
     def update_mask(self, mask, dynamic, chosen_idx=None):
@@ -192,7 +199,7 @@ def render(static, tour_indices, save_path):
 
     num_plots = 3 if int(np.sqrt(len(tour_indices))) >= 3 else 1
 
-    _, axes = plt.subplots(nrows=num_plots, figsize=(25,25), ncols=num_plots,
+    _, axes = plt.subplots(nrows=num_plots, figsize=(50,50), ncols=num_plots,
                            sharex='col', sharey='row')
 
     if num_plots == 1:
@@ -237,6 +244,68 @@ def render(static, tour_indices, save_path):
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=200)
 
+def render2(static, tour_indices, save_path, cust_info):
+    """Plots the found solution and returns sequence of customer IDs"""
+
+    plt.close('all')
+
+    num_plots = 3 if int(np.sqrt(len(tour_indices))) >= 3 else 1
+
+    _, axes = plt.subplots(nrows=num_plots, figsize=(50,50), ncols=num_plots,
+                           sharex='col', sharey='row')
+
+    if num_plots == 1:
+        axes = [[axes]]
+    axes = [a for ax in axes for a in ax]
+
+    for i, ax in enumerate(axes):
+
+        # Convert the indices back into a tour
+        idx = tour_indices[i]
+        print(f'tour_indices[i]: {tour_indices[i]}')
+        if len(idx.size()) == 1:
+            idx = idx.unsqueeze(0)
+
+        idx = idx.expand(static.size(1), -1)
+        data = torch.gather(static[i].data, 1, idx).cpu().numpy()
+
+        start = static[i, :, 0].cpu().data.numpy()
+        x = np.hstack((start[0], data[0], start[0]))
+        y = np.hstack((start[1], data[1], start[1]))
+
+        # Assign each subtour a different colour & label in order traveled
+        idx = np.hstack((0, tour_indices[i].cpu().numpy().flatten(), 0))
+        where = np.where(idx == 0)[0]
+
+        for j in range(len(where) - 1):
+
+            low = where[j]
+            high = where[j + 1]
+
+            if low + 1 == high:
+                continue
+
+            ax.plot(x[low: high + 1], y[low: high + 1], zorder=1, label=j)
+            print(f"Trip {j}: ")
+            #TODO: We need a way to get the trip, the sequence of stops along with customers ID information 
+            # and the amount of demand served by making the stop. 
+            # The data here is coming in all as 
+            #   x: list of latitudes 
+            #   y: list of longs
+            # I tried reading the customer information as a dict mapping the location lat/longs to the customer IDs 
+            # but I think we need to find a better way to handle this data
+
+            #print(f"Sequence: {[cust_info[x[low: high + 1][k], y[low: high + 1][k]]  for k in range(len(x[low: high + 1]))]}") 
+
+        ax.legend(loc="upper right", fontsize=3, framealpha=0.5)
+        ax.scatter(x, y, s=4, c='r', zorder=2)
+        ax.scatter(x[0], y[0], s=20, c='k', marker='*', zorder=3)
+
+        ax.set_xlim(34, 38)
+        ax.set_ylim(-75, -79)
+
+    plt.tight_layout()
+    plt.savefig(save_path, bbox_inches='tight', dpi=200)
 
 '''
 def render(static, tour_indices, save_path):

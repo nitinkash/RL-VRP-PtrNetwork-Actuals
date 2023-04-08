@@ -5,6 +5,7 @@ import torch.nn.functional as F
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #device = torch.device('cpu')
 
+# TODO: Go over these modules with Hari and underdstand them better
 
 class Encoder(nn.Module):
     """Encodes the static & dynamic states using 1d Convolution."""
@@ -64,6 +65,7 @@ class Pointer(nn.Module):
                                           device=device, requires_grad=True))
 
         # Used to compute a representation of the current decoder output
+        #TODO: Experiment with other NN types
         self.gru = nn.GRU(hidden_size, hidden_size, num_layers,
                           batch_first=True,
                           dropout=dropout if num_layers > 1 else 0)
