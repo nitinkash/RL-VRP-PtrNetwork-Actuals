@@ -244,7 +244,7 @@ def train_vrp(args):
 
     test_dir = 'test'
     test_loader = DataLoader(test_data, args.batch_size, False, num_workers=0)
-    out = validate(test_loader, actor, vrp.reward, vrp.render2, test_dir, num_plot=5, cust_info=test_data.getCustomerInfo())
+    out = validate(test_loader, actor, vrp.reward, vrp.render, test_dir, num_plot=5)
 
     print('Average tour length: ', out)
 

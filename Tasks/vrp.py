@@ -199,7 +199,7 @@ def render(static, tour_indices, save_path):
 
     num_plots = 3 if int(np.sqrt(len(tour_indices))) >= 3 else 1
 
-    _, axes = plt.subplots(nrows=num_plots, figsize=(50,50), ncols=num_plots,
+    _, axes = plt.subplots(nrows=num_plots, figsize=(15,15), ncols=num_plots,
                            sharex='col', sharey='row')
 
     if num_plots == 1:
@@ -217,6 +217,17 @@ def render(static, tour_indices, save_path):
         data = torch.gather(static[i].data, 1, idx).cpu().numpy()
 
         start = static[i, :, 0].cpu().data.numpy()
+
+        seqStops = []
+        seqStops.append(0) 
+        tourIdxList = tour_indices[i].tolist()
+        for tourIdx in tourIdxList:
+            if tourIdx == 0:
+                seqStops.append(tourIdx)
+            else:
+                seqStops.append(seqStops[-1]+1)
+
+
         x = np.hstack((start[0], data[0], start[0]))
         y = np.hstack((start[1], data[1], start[1]))
 
@@ -234,9 +245,11 @@ def render(static, tour_indices, save_path):
 
             ax.plot(x[low: high + 1], y[low: high + 1], zorder=1, label=j)
 
-        ax.legend(loc="upper right", fontsize=3, framealpha=0.5)
+        ax.legend(loc="upper right", fontsize='medium', framealpha=0.8)
         ax.scatter(x, y, s=4, c='r', zorder=2)
         ax.scatter(x[0], y[0], s=20, c='k', marker='*', zorder=3)
+        for j, (x_coord, y_coord, stopSeq) in enumerate(zip(x, y, seqStops)):
+            ax.annotate(str(stopSeq), xy=(x_coord, y_coord), fontsize='medium')
 
         ax.set_xlim(34, 38)
         ax.set_ylim(-75, -79)
@@ -244,6 +257,7 @@ def render(static, tour_indices, save_path):
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=200)
 
+'''
 def render2(static, tour_indices, save_path, cust_info):
     """Plots the found solution and returns sequence of customer IDs"""
 
@@ -251,7 +265,7 @@ def render2(static, tour_indices, save_path, cust_info):
 
     num_plots = 3 if int(np.sqrt(len(tour_indices))) >= 3 else 1
 
-    _, axes = plt.subplots(nrows=num_plots, figsize=(50,50), ncols=num_plots,
+    _, axes = plt.subplots(nrows=num_plots, figsize=(15,15), ncols=num_plots,
                            sharex='col', sharey='row')
 
     if num_plots == 1:
@@ -270,8 +284,22 @@ def render2(static, tour_indices, save_path, cust_info):
         data = torch.gather(static[i].data, 1, idx).cpu().numpy()
 
         start = static[i, :, 0].cpu().data.numpy()
+        seqStops = []
+        seqStops.append(0) 
+        tourIdxList = tour_indices[i].tolist()
+        print(f'TourIdx List: {tourIdxList}')
+        for tourIdx in tourIdxList:
+            print(f'TourIdx = {tourIdx}')
+            if tourIdx == 0:
+                seqStops.append(tourIdx)
+            else:
+                seqStops.append(seqStops[-1]+1)
+        
         x = np.hstack((start[0], data[0], start[0]))
         y = np.hstack((start[1], data[1], start[1]))
+        print(x)
+        print(y)
+        print(seqStops)
 
         # Assign each subtour a different colour & label in order traveled
         idx = np.hstack((0, tour_indices[i].cpu().numpy().flatten(), 0))
@@ -297,9 +325,11 @@ def render2(static, tour_indices, save_path, cust_info):
 
             #print(f"Sequence: {[cust_info[x[low: high + 1][k], y[low: high + 1][k]]  for k in range(len(x[low: high + 1]))]}") 
 
-        ax.legend(loc="upper right", fontsize=3, framealpha=0.5)
+        ax.legend(loc="upper right", fontsize='medium', framealpha=0.8)
         ax.scatter(x, y, s=4, c='r', zorder=2)
         ax.scatter(x[0], y[0], s=20, c='k', marker='*', zorder=3)
+        for j, (x_coord, y_coord, stopSeq) in enumerate(zip(x, y, seqStops)):
+            ax.annotate(str(stopSeq), xy=(x_coord, y_coord),  fontsize='medium')
 
         ax.set_xlim(34, 38)
         ax.set_ylim(-75, -79)
@@ -307,7 +337,7 @@ def render2(static, tour_indices, save_path, cust_info):
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches='tight', dpi=200)
 
-'''
+
 def render(static, tour_indices, save_path):
     """Plots the found solution."""
 
